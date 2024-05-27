@@ -15,7 +15,7 @@ public class Scraper {
 
     public void Scrape() throws Exception {
         String newsString =null;
-        String siteName = "https://news.google.com/home?hl=en-IN&gl=IN&ceid=IN:en";
+        String siteName = "whatever site starting with https";
         List<URI> targets = Arrays.asList(
                 new URI(siteName));
         HttpClient client = HttpClient.newHttpClient();
