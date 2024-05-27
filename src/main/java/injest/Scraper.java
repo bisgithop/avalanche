@@ -63,7 +63,7 @@ public class Scraper {
     public static void main(String[] args) throws Exception{
         Scraper scraper = new Scraper();
         //scraper.Scrape();
-        Set news = scraper.readFile("D:/site/upload/data/current/bbc_27-05-2024-12-01.xml");
+        Set news = scraper.readFile("D:/site/upload/data/current/sitename_27-05-2024-12-01.xml");
         Iterator it = news.iterator();
         while( it.hasNext()){
             System.out.println("News:" + (String)it.next());
