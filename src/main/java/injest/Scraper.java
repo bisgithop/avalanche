@@ -14,89 +14,106 @@ import java.util.stream.Collectors;
 public class Scraper {
 
     public void Scrape() throws Exception {
-        String newsString =null;
-        String siteName = "whatever site starting with https";
-        List<URI> targets = Arrays.asList(
-                new URI(siteName));
+     List<URI> list = new ArrayList<URI>();
+        for ( String site : sites) {
+            list.add(new URI(site));
+        }
         HttpClient client = HttpClient.newHttpClient();
-        List<CompletableFuture<String>> futures = targets.stream()
+        List<CompletableFuture<String>> futures = list.stream()
                 .map(target -> client
                         .sendAsync(
                                 HttpRequest.newBuilder(target).GET().build(),
                                 HttpResponse.BodyHandlers.ofString())
                         .thenApply(response -> response.body()))
                 .collect(Collectors.toList());
-
-        Thread.sleep(1000);
+        Thread.sleep(3000);
+        int i = 0;
         for (CompletableFuture<String> news : futures) {
-            newsString  = news.get();
-            System.out.println(newsString);
-        }
-
-        try {
-             siteName = (siteName.replace("http://", "")).replace("www.", "").replace(".", "_").replace("/", "_").replace("https://","");
-
-            SimpleDateFormat format = new SimpleDateFormat("_dd-MM-yyyy-hh-mm");
-            String DateToStr = format.format(new Date());
-            String fileName =  "D:/site/upload/data/current/" + siteName + DateToStr + ".xml";
-            System.out.println("CreatingFile:" + fileName);
-
-
-            File file = new File(fileName);
-
-            if (!file.exists()) {
-                file.createNewFile();
-            }
-
-            FileWriter fw = new FileWriter(file.getAbsoluteFile());
-            BufferedWriter bw = new BufferedWriter(fw);
-            bw.write(newsString);
-            bw.close();
-
-        }catch ( Exception e2) {
-            e2.printStackTrace();
+            System.out.println("Saving for:" + sites[i]);
+            saveFile(sites[i], location, news.get());
+            i++;
         }
 
     }
 
 
     public static void main(String[] args) throws Exception{
+    String location = "D:/site/upload/data/current/";
+        String[] sites = new String[]{
+          "https://news.google.com/home?hl=en-IN&gl=IN&ceid=IN:en"
+        };
         Scraper scraper = new Scraper();
-        //scraper.Scrape();
-        Set news = scraper.readFile("D:/site/upload/data/current/sitename_27-05-2024-12-01.xml");
-        Iterator it = news.iterator();
-        while( it.hasNext()){
-            System.out.println("News:" + (String)it.next());
-        }
-
+        scraper.Scrape(sites, location);
+        Thread.sleep(5000);
+        Map data = scraper.read(location);
+        SolrManager.getInstance().uploadAll(data);
     }
 
 
 
-    private Set readFile(String fileName)
+    private void saveFile(String siteName, String location,String content)
     {
-        Set list = null;
         try {
-
-            BufferedReader buff = new BufferedReader( new InputStreamReader(new FileInputStream(fileName)));
-            String str = null;
-            StringBuilder strbuff = new StringBuilder();
-
-            while( (str = buff.readLine()) != null )
-            {
-                strbuff.append(str);
+            siteName = siteName.substring(0,20);
+            siteName = (siteName.replace("https://", "")).replace("www.", "").replace(".", "_").replace("/", "_").replace("https://","").replace("?","");
+            SimpleDateFormat format = new SimpleDateFormat("_dd-MM-yy-hh-mm");
+            String DateToStr = format.format(new Date());
+            String fileName =  location + siteName + DateToStr + ".xml";
+            System.out.println("CreatingFile:" + fileName);
+            File file = new File(fileName);
+            if (!file.exists()) {
+                file.createNewFile();
             }
-            str = strbuff.toString();
-            System.out.println("String size:" + str.length());
-            list = HTMLParsers.moveForward(str);
-            System.out.println("Size of news loaded from File:"+list.size());
-
-        } catch (Exception e) {
-            System.out.println(e.toString());
-            e.printStackTrace();
-
+            FileWriter fw = new FileWriter(file);
+            BufferedWriter bw = new BufferedWriter(fw);
+            bw.write(content);
+            bw.close();
+        }catch ( Exception e2) {
+            e2.printStackTrace();
         }
-        return list;
     }
+
+
+    
+     private Map read(String location) throws IOException {
+        File directory = new File(location);
+        File[] files = directory.listFiles();
+        Map allSitesSet = new HashMap();
+        if (files != null) {
+            for (File file : files) {
+                System.out.println("READING FILE FROM:" + file.getAbsolutePath());
+                String shortFileName = file.getName().split("_")[0];
+                BufferedReader buff = null;
+                try {
+                    buff = new BufferedReader(new InputStreamReader(new FileInputStream(file.getAbsolutePath())));
+                    String str = null;
+                    StringBuffer strbuff = new StringBuffer();
+                    while( (str = buff.readLine()) != null ) {
+                        strbuff.append(str);
+                    }
+                    str = strbuff.toString();
+                    buff.close();
+                    System.out.println("String size:" + str.length());
+                    Set setFromSite = HTMLParsers.moveForward(str);
+                    allSitesSet.put(shortFileName,setFromSite);
+                    System.out.println("Size of news loaded from File:"+setFromSite.size());
+                } catch (Exception e) {
+                    System.out.println(e.toString());
+                    e.printStackTrace();
+                    if( buff !=null) buff.close();
+
+                }
+                finally {
+                    try {
+                        if ( buff != null) buff.close();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }
+        return allSitesSet;
+    }
+
 
 }
